@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Secrets
+.env*
+!.env.example
+*.pem
+
+# Dependencies and build output
+node_modules/
+__pycache__/
+*.pyc
+dist/
+build/
+
+# Tool scratch
+.playwright-mcp/
+
+# Claude Code settings that belong to this machine only
+.claude/settings.local.json
+
+# Anything in here never leaves this machine
+private/

@@ -1,0 +1,14 @@
+{
+  "name": "varde",
+  "description": "Varde: a blank project scaffold with session management for Claude Code.",
+  "owner": {
+    "name": "Alex Hoffman"
+  },
+  "plugins": [
+    {
+      "name": "varde",
+      "source": "./",
+      "description": "Scaffolds a blank Claude Code project folder and keeps a short STATUS.md current between sessions."
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+
+# This folder already held files when varde was added, so git ignores
+# everything in it by default and tracks only the files listed below.
+# To track another file, add a line for it starting with "!/".
+/*
+!/.gitignore
+!/CLAUDE.md
+!/STATUS.md
+!/.claude/
+.claude/settings.local.json

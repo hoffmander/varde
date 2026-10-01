@@ -1,0 +1,11 @@
+{
+  "name": "varde",
+  "displayName": "Varde",
+  "version": "0.4.0",
+  "description": "Scaffolds a blank Claude Code project folder and keeps a short STATUS.md current between sessions.",
+  "author": {
+    "name": "Alex Hoffman"
+  },
+  "license": "MIT",
+  "keywords": ["scaffold", "status", "session", "project"]
+}
