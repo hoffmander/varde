@@ -223,7 +223,7 @@ An installed plugin is a copy. To get a change into it, raise `version` in `.cla
 
 - Linux and Windows. The scripts are written to be portable, but only macOS is tested.
 - A command that switches a project between standard and sensitive.
-- Creating a GitHub repository or pushing.
+- Creating a GitHub repository for your project, or pushing it. `/varde:new` makes the first local commit and stops there.
 
 ## License
 
