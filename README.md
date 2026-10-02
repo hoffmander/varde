@@ -2,6 +2,8 @@
 
 **A Claude Code plugin that sets up a blank project folder and keeps a short status file current between sessions.**
 
+![A stack of colored stones in a park, with a tower behind it](github-header.jpg)
+
 A varde is a stone cairn, the kind Norse travelers stacked along trails and coastlines to mark the way. Each session adds a stone, and the stack shows the next session where to go.
 
 It works for any kind of project, code or not: an app, a presentation, insurance paperwork, a trip, a truck build.
