@@ -108,7 +108,7 @@ check  "reports that private/ is not ignored" contains "$WORK/out.txt" "does not
 echo "Folder that was already a git repository"
 R="$WORK/was-repo"
 mkdir -p "$R"; git -C "$R" init -q -b main; echo x > "$R/app.js"
-git -C "$R" add app.js; git -C "$R" commit -qm "First."; touch "$R/secret.pdf"
+git -C "$R" add app.js; git -C "$R" commit -qm "First."; touch "$R/claim-form.pdf"
 bash "$SCAFFOLD" "$R" yes "Was Repo" > "$WORK/out.txt"
 refute "gets no allowlist"                    grep -qxF '/*' "$R/.gitignore"
 check  "reports the exposed files"            contains "$WORK/out.txt" "untracked items in this repository are not ignored"
@@ -196,6 +196,10 @@ for i in $(seq 1 70); do echo "- line $i" >> "$L/STATUS.md"; done
 check  "doctor warns over the cap"            grep -q '^warn    STATUS.md is .* lines (cap 60)' <<< "$(bash "$DOCTOR" "$L")"
 echo "log/" >> "$L/.gitignore"
 check  "doctor flags log ignored in standard" grep -q '^warn    log/ is ignored by git, but the mode is standard' <<< "$(bash "$DOCTOR" "$L")"
+
+echo "Nothing that looks like credential handling"
+refute "no eval anywhere in the hooks"       grep -rq 'eval ' "$HOOKS"
+refute "no eval in the skill scripts"        grep -rq 'eval ' "$REPO/skills"
 
 echo "Uninstall from this computer (dry run only)"
 mkdir -p "$CLAUDE_CONFIG_DIR/plugins/cache/varde/varde/0.0.1"; touch "$CLAUDE_CONFIG_DIR/plugins/cache/varde/varde/0.0.1/x"

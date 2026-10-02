@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+- Listing icon at `.claude-plugin/icon.png` and a new header image, both with embedded metadata removed.
+- `scripts/lib.sh` parses hook input without `eval`, so the directory's security scan has nothing to hold.
+
 ## 0.4.0
 
 - `/varde:uninstall` also removes Claude Code's cached copies of the plugin.

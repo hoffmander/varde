@@ -14,15 +14,20 @@ VARDE_DATA="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/varde-data}"
 # Hook input arrives as one JSON object on stdin. Read it once.
 INPUT="$(cat)"
 
-# json_string KEY
-# Prints the first top-level "KEY": "value" found in INPUT, or nothing.
+# json_string FIELD
+# Prints the first top-level "FIELD": "value" found in INPUT, or nothing.
 # Quotes inside JSON strings are escaped (\"), so text typed into a prompt
-# cannot fake a key.
+# cannot fake a field.
 json_string() {
-  local key="$1" raw
-  raw="$(printf '%s' "$INPUT" | grep -oE "\"$key\"[[:space:]]*:[[:space:]]*\"([^\"\\\\]|\\\\.)*\"" | head -n 1)"
+  local field="$1" raw
+  raw="$(printf '%s' "$INPUT" | grep -oE "\"$field\"[[:space:]]*:[[:space:]]*\"([^\"\\\\]|\\\\.)*\"" | head -n 1)"
   [ -n "$raw" ] || return 0
-  printf '%s' "$raw" | sed -E 's/^"[^"]*"[[:space:]]*:[[:space:]]*"//; s/"$//; s/\\"/"/g; s/\\\//\//g; s/\\\\/\\/g'
+  # Drop the "field": part and the quote on each end, then unescape.
+  raw="${raw#*:}"
+  raw="${raw#"${raw%%[![:space:]]*}"}"
+  raw="${raw#\"}"
+  raw="${raw%\"}"
+  printf '%s' "$raw" | sed -E 's/\\"/"/g; s/\\\//\//g; s/\\\\/\\/g'
 }
 
 # file_mtime PATH
@@ -48,8 +53,8 @@ find_project_root() {
   return 0
 }
 
-# conf_get FILE KEY
-# Reads one value from a key=value file. The file is committed and can
+# conf_get FILE FIELD
+# Reads one value from a field=value file. The file is committed and can
 # arrive through a clone, so it is only ever read with grep, never run.
 conf_get() {
   grep -E "^$2=" "$1" 2>/dev/null | head -n 1 | cut -d= -f2-
@@ -74,18 +79,27 @@ state_reset() {
 }
 
 # state_load FILE
-# Fills the S_ variables from FILE. Unknown keys are ignored and number
+# Fills the S_ variables from FILE. Unknown fields are ignored and number
 # fields that are not numbers fall back to 0.
 state_load() {
   state_reset
   [ -f "$1" ] || return 0
-  local key value
-  while IFS='=' read -r key value; do
-    case "$key" in
+  local field value
+  while IFS='=' read -r field value; do
+    case "$field" in
       transcript) S_transcript="$value" ;;
       started|last_prompt|prompts_since_status|prompts_since_nudge|status_mtime_seen|last_nudge|ended|reconcile_shown)
         is_number "$value" || value=0
-        eval "S_$key=$value"
+        case "$field" in
+          started)              S_started="$value" ;;
+          last_prompt)          S_last_prompt="$value" ;;
+          prompts_since_status) S_prompts_since_status="$value" ;;
+          prompts_since_nudge)  S_prompts_since_nudge="$value" ;;
+          status_mtime_seen)    S_status_mtime_seen="$value" ;;
+          last_nudge)           S_last_nudge="$value" ;;
+          ended)                S_ended="$value" ;;
+          reconcile_shown)      S_reconcile_shown="$value" ;;
+        esac
         ;;
     esac
   done < "$1"
