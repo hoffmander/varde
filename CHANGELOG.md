@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2
+
+- The hooks start far fewer programs. `scripts/lib.sh` reads hook input, walks up to the project, and reads the marker with bash builtins instead of `grep`, `sed`, `head`, `cut`, and `dirname`. The prompt hook, which runs on every prompt in every folder, is several times faster.
+- On macOS the modified time comes from `/usr/bin/stat` by full path, so a GNU `stat` earlier on `PATH` cannot answer in its place.
+- A marker whose last line has no newline after it is still read.
+
 ## 0.4.1
 
 - Listing icon at `.claude-plugin/icon.png` and a new header image, both with embedded metadata removed.

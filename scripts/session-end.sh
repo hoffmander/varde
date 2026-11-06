@@ -8,7 +8,7 @@
 # A closed window or a crash never reaches this script. That case is
 # caught by the idle check in session-start.sh.
 
-. "$(dirname "$0")/lib.sh"
+case "$0" in */*) . "${0%/*}/lib.sh" ;; *) . ./lib.sh ;; esac
 varde_setup
 
 # Nothing was recorded for this session, so there is nothing to close.

@@ -14,10 +14,10 @@
 #   VARDE_MIN_PROMPTS   unsaved prompts worth a reconcile          (default 3)
 #   VARDE_INDEX_LINES   decisions shown from the log, 0 for none   (default 15)
 
-. "$(dirname "$0")/lib.sh"
+case "$0" in */*) . "${0%/*}/lib.sh" ;; *) . ./lib.sh ;; esac
 varde_setup
 
-SOURCE="$(json_string source)"
+json_get source; SOURCE="$REPLY"
 STATUS_CAP=60      # lines
 IDLE_LIMIT="${VARDE_IDLE_SECONDS:-600}"
 MIN_PROMPTS="${VARDE_MIN_PROMPTS:-3}"
