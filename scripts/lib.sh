@@ -6,6 +6,10 @@
 #   - No `set -e`. A hook that exits non-zero can block the user's prompt,
 #     so every path ends in `exit 0`.
 #   - Does nothing in a folder that has no .claude/varde.conf above it.
+#   - Starts as few programs as it can. The prompt hook runs on every
+#     prompt in every folder, and on macOS each grep, sed, or dirname costs
+#     more than all the shell logic here put together. Prefer a bash
+#     builtin wherever one does the job.
 
 # Where per-session state is kept. Outside the project on purpose, so a
 # fresh clone needs nothing and nothing here lands in git.
@@ -14,28 +18,36 @@ VARDE_DATA="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/varde-data}"
 # Hook input arrives as one JSON object on stdin. Read it once.
 INPUT="$(cat)"
 
-# json_string FIELD
-# Prints the first top-level "FIELD": "value" found in INPUT, or nothing.
-# Quotes inside JSON strings are escaped (\"), so text typed into a prompt
-# cannot fake a field.
-json_string() {
-  local field="$1" raw
-  raw="$(printf '%s' "$INPUT" | grep -oE "\"$field\"[[:space:]]*:[[:space:]]*\"([^\"\\\\]|\\\\.)*\"" | head -n 1)"
-  [ -n "$raw" ] || return 0
-  # Drop the "field": part and the quote on each end, then unescape.
-  raw="${raw#*:}"
-  raw="${raw#"${raw%%[![:space:]]*}"}"
-  raw="${raw#\"}"
-  raw="${raw%\"}"
-  printf '%s' "$raw" | sed -E 's/\\"/"/g; s/\\\//\//g; s/\\\\/\\/g'
+# json_get FIELD
+# Sets REPLY to the first top-level "FIELD": "value" found in INPUT, or to
+# nothing. Quotes inside JSON strings are escaped (\"), so text typed into
+# a prompt cannot fake a field.
+json_get() {
+  # The pattern has to sit in a variable for bash 3.2 to read it as a regex.
+  local re="\"$1\"[[:space:]]*:[[:space:]]*\"(([^\"\\\\]|\\\\.)*)\""
+  REPLY=""
+  [[ $INPUT =~ $re ]] || return 0
+  REPLY="${BASH_REMATCH[1]}"
+  case "$REPLY" in *\\*) ;; *) return 0 ;; esac
+  # Unescape \" \/ and \\ in that order. These also sit in variables:
+  # bash 3.2 misreads a backslash-slash written straight into
+  # ${var//pattern/replacement} and quietly replaces nothing.
+  local bs='\' quote='"' slash='/'
+  REPLY="${REPLY//"$bs$quote"/$quote}"
+  REPLY="${REPLY//"$bs$slash"/$slash}"
+  REPLY="${REPLY//"$bs$bs"/$bs}"
 }
 
 # file_mtime PATH
 # Last-modified time in seconds since 1970. Prints 0 if the file is missing.
-# The GNU form is tried first because on macOS it fails cleanly, while the
-# macOS form on Linux prints garbage.
+# macOS goes straight to its own stat by full path, so a GNU stat earlier
+# on PATH can't answer instead. Elsewhere the GNU form is tried first,
+# because the macOS form on Linux prints garbage.
 file_mtime() {
-  stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0
+  case "$OSTYPE" in
+    darwin*) /usr/bin/stat -f %m "$1" 2>/dev/null || echo 0 ;;
+    *)       stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0 ;;
+  esac
 }
 
 # find_project_root DIR
@@ -48,16 +60,25 @@ find_project_root() {
       printf '%s' "$dir"
       return 0
     fi
-    dir="$(dirname "$dir")"
+    # Step up to the parent. A path with no slash left has no parent.
+    case "$dir" in */*) dir="${dir%/*}" ;; *) return 0 ;; esac
   done
   return 0
 }
 
 # conf_get FILE FIELD
 # Reads one value from a field=value file. The file is committed and can
-# arrive through a clone, so it is only ever read with grep, never run.
+# arrive through a clone, so it is only ever read line by line, never run.
 conf_get() {
-  grep -E "^$2=" "$1" 2>/dev/null | head -n 1 | cut -d= -f2-
+  local line
+  [ -r "$1" ] || return 0
+  # The second test keeps a last line that has no newline after it.
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      "$2="*) printf '%s\n' "${line#*=}"; return 0 ;;
+    esac
+  done < "$1"
+  return 0
 }
 
 # is_number VALUE -> true when VALUE is a plain non-negative integer.
@@ -130,14 +151,21 @@ state_save() {
 # first. It exits the script quietly when there is nothing to do.
 # Sets: SESSION_ID CWD TRANSCRIPT ROOT STATUS_FILE STATE_DIR STATE_FILE NOW
 varde_setup() {
+  # bash 5 knows the time by itself. The bash 3.2 on macOS has to ask date.
+  NOW="${EPOCHSECONDS:-}"
+  is_number "$NOW" || NOW="$(date +%s)"
+
   # Leave a trace that this hook ran, before any project check, so
   # /varde:doctor can answer "has this hook ever fired" from anywhere.
-  HOOK_NAME="$(basename "$0" .sh)"
-  mkdir -p "$VARDE_DATA/fired" 2>/dev/null && date +%s > "$VARDE_DATA/fired/$HOOK_NAME" 2>/dev/null
+  local fired="$VARDE_DATA/fired"
+  HOOK_NAME="${0##*/}"
+  HOOK_NAME="${HOOK_NAME%.sh}"
+  [ -d "$fired" ] || mkdir -p "$fired" 2>/dev/null
+  [ -d "$fired" ] && echo "$NOW" 2>/dev/null > "$fired/$HOOK_NAME"
 
-  SESSION_ID="$(json_string session_id)"
-  CWD="$(json_string cwd)"
-  TRANSCRIPT="$(json_string transcript_path)"
+  json_get session_id;      SESSION_ID="$REPLY"
+  json_get cwd;             CWD="$REPLY"
+  json_get transcript_path; TRANSCRIPT="$REPLY"
 
   # Anything unexpected: do nothing.
   case "$SESSION_ID" in ""|*[!A-Za-z0-9_-]*) exit 0 ;; esac
@@ -154,7 +182,6 @@ varde_setup() {
   STATUS_FILE="$ROOT/STATUS.md"
   STATE_DIR="$VARDE_DATA/projects/$id"
   STATE_FILE="$STATE_DIR/$SESSION_ID"
-  NOW="$(date +%s)"
 
-  mkdir -p "$STATE_DIR" 2>/dev/null || exit 0
+  [ -d "$STATE_DIR" ] || mkdir -p "$STATE_DIR" 2>/dev/null || exit 0
 }

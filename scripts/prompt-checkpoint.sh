@@ -10,7 +10,7 @@
 #   VARDE_NUDGE_PROMPTS  prompts before a nudge   (default 8)
 #   VARDE_NUDGE_MINUTES  minutes before a nudge   (default 20)
 
-. "$(dirname "$0")/lib.sh"
+case "$0" in */*) . "${0%/*}/lib.sh" ;; *) . ./lib.sh ;; esac
 varde_setup
 
 NUDGE_PROMPTS="${VARDE_NUDGE_PROMPTS:-8}"
@@ -18,7 +18,7 @@ NUDGE_MINUTES="${VARDE_NUDGE_MINUTES:-20}"
 is_number "$NUDGE_PROMPTS" || NUDGE_PROMPTS=8
 is_number "$NUDGE_MINUTES" || NUDGE_MINUTES=20
 
-MODE="$(json_string permission_mode)"
+json_get permission_mode; MODE="$REPLY"
 STATUS_MTIME="$(file_mtime "$STATUS_FILE")"
 
 state_load "$STATE_FILE"
@@ -58,7 +58,7 @@ state_save "$STATE_FILE"
 
 if [ "$NUDGE" = yes ]; then
   TODAY="$(date +%Y-%m-%d)"
-  LOG_FILE="log/$(date +%Y-%m).md"
+  LOG_FILE="log/${TODAY%-*}.md"
   printf '[varde] Checkpoint. After finishing the request above, update STATUS.md (keep it under 60 lines) and add what was finished, decided, or tried and dropped to %s under "## %s". Say in one line that you did. If nothing worth recording has happened, skip it and say nothing.\n' "$LOG_FILE" "$TODAY"
 fi
 

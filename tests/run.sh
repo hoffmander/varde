@@ -178,6 +178,26 @@ rm -f "$CLAUDE_PLUGIN_DATA/fired/session-end"
 hook session-end.sh nowhere "$WORK" ',"reason":"other"' > /dev/null
 check  "trace is left even outside a project" test -f "$CLAUDE_PLUGIN_DATA/fired/session-end"
 
+echo "Hook input parsing"
+IDL="$(id_of "$L")"
+# JSON may write / as \/. The folder has to be found either way.
+ESC="$(printf '%s' "$L" | sed 's#/#\\/#g')"
+hook prompt-checkpoint.sh p1 "$ESC" ',"permission_mode":"default","prompt":"hi"' > /dev/null
+check  "escaped slashes in cwd are undone"    test -f "$CLAUDE_PLUGIN_DATA/projects/$IDL/p1"
+# Fields that come after a long prompt are still read.
+BIG="$(head -c 60000 /dev/zero | tr '\0' 'a')"
+printf '{"prompt":"%s","permission_mode":"default","session_id":"p2","transcript_path":"%s","cwd":"%s"}' \
+  "$BIG" "$WORK/transcript.jsonl" "$L" | bash "$HOOKS/prompt-checkpoint.sh" > /dev/null
+check  "fields after a long prompt are read"  test -f "$CLAUDE_PLUGIN_DATA/projects/$IDL/p2"
+rm -f "$CLAUDE_PLUGIN_DATA/projects/$IDL/p1" "$CLAUDE_PLUGIN_DATA/projects/$IDL/p2"
+# A marker whose last line has no newline after it.
+N="$WORK/no newline"
+mkdir -p "$N/.claude"; printf 'id=no-newline' > "$N/.claude/varde.conf"
+hook prompt-checkpoint.sh p3 "$N" ',"permission_mode":"default","prompt":"hi"' > /dev/null
+check  "marker with no final newline is read" test -f "$CLAUDE_PLUGIN_DATA/projects/no-newline/p3"
+rm -rf "$CLAUDE_PLUGIN_DATA/projects/no-newline"
+check  "a path with no slash ends the walk"   bash -c '. "$1/lib.sh" < /dev/null; find_project_root nowhere' _ "$HOOKS"
+
 echo "Doctor"
 DOCTOR="$REPO/skills/doctor/scripts/doctor.sh"
 OUTD="$(CLAUDE_CODE_SESSION_ID=i1 bash "$DOCTOR" "$L")"
